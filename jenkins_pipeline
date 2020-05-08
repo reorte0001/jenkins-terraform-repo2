@@ -1,0 +1,34 @@
+node {
+    git 'https://github.com/reorte0001/jenkins-terraform-repo2.git'
+    if(action == 'Deploy') {
+        stage('init') {
+            sh label: 'terraform init', script: 'terraform init'
+        }
+        stage('plan') {
+            sh label: 'terraform plan', script: 'terraform plan -out tfplan-service -input=false -lock=false -var ghost_image=${image_name} -var ghost_ext_port=${ghost_ext_port}'
+        script {
+            timeout(time: 10, unit: 'MINUTES') {
+                input(id: 'Deploy', message: 'Deploy environment?', ok: 'Deploy')
+            }
+          }
+        }
+        stage('deploy') {
+            sh lablel: 'terraform deploy', script: 'terraform apply tfplan-service'
+        }
+    }
+    if(action == 'Destroy') {
+        stage('plan destroy') {
+            sh label: 'terraform plan destroy', script: 'terraform plan -destroy -out tfplan-destroy -input=false -lock=false -var ghost_image=${image_name} -var ghost_ext_port=${ghost_ext_port}'
+        }
+        stage('destroy') {
+            script {
+              timeout(time: 10, unit: 'MINUTES') {
+                  input(id: 'Destroy Gate', message: 'Destroy environment', ok: 'destroy')
+              }
+            }
+            sh label: 'terraform destroy', script: 'terraform apply tfplan-destroy'
+        }
+        stage('cleanup')
+        sh label: 'cleanup', script: 'rm -rf terraform.tfstat'
+    }
+}
